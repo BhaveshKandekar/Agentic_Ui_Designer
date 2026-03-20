@@ -5,7 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Agentic UI - AI Web Design Generator",
+  title: "Brahmastra - UI/UX Design",
   description: "Generate stunning UI code with multi-agent AI.",
 };
 
