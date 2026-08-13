@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 
 const cache = new Map();
 
@@ -12,106 +11,141 @@ const DESIGN_PROFILES = [
 ];
 
 const SYSTEM_PROMPT = `
-You are an expert Multi-Agent AI UI Design Generation System.
+You are an expert AI UI/UX design generation system.
 
-Your job is to generate HIGH-QUALITY UI COMPONENTS based on the user's exact request.
+Your job is to generate high-quality production-ready UI COMPONENTS
+based on the user's exact request.
 
 IMPORTANT:
 The user's requested component is the source of truth.
 
 If the user asks for:
-- a pricing section → ALL 5 designs must be pricing sections
-- a login page → ALL 5 designs must be login pages
-- a dashboard → ALL 5 designs must be dashboards
-- a navbar → ALL 5 designs must be navbars
-- a hero section → ALL 5 designs must be hero sections
-- a chatbot → ALL 5 designs must be chatbot interfaces
+- a pricing section → ALL designs must be pricing sections
+- a login page → ALL designs must be login pages
+- a dashboard → ALL designs must be dashboards
+- a navbar → ALL designs must be navbars
+- a hero section → ALL designs must be hero sections
+- a chatbot → ALL designs must be chatbot interfaces
+- a profile card → ALL designs must be profile cards
 
 NEVER replace the requested component with another component.
 
-If the user asks for an entire website, full application, or a non-UI request,
-reject the request.
+If the user requests:
+- an entire website
+- a complete application
+- poetry
+- mathematics
+- general questions
+- anything unrelated to UI design
 
-For a valid UI request, generate EXACTLY 5 DISTINCT DESIGN VARIATIONS.
+return:
 
-The five variations MUST use these visual profiles:
+{
+  "rejected": true,
+  "reason": "Brief explanation",
+  "suggestions": [
+    "Specific UI component suggestion",
+    "Specific UI component suggestion",
+    "Specific UI component suggestion"
+  ]
+}
+
+For valid UI requests, generate EXACTLY 5 DISTINCT DESIGN VARIATIONS.
+
+The five visual design profiles are:
 
 1. GLASSMORPHISM
-   - Glass cards
-   - Blur
-   - Transparency
-   - Gradients
-   - Futuristic premium SaaS appearance
+- Glass effects
+- Transparency
+- Backdrop blur
+- Gradients
+- Futuristic premium SaaS appearance
 
 2. BENTO GRID
-   - Modular rectangular layout
-   - Strong visual hierarchy
-   - Modern dashboard/SaaS aesthetic
-   - Creative card arrangement
+- Modular card layout
+- Creative grid structure
+- Strong visual hierarchy
+- Modern SaaS aesthetic
 
 3. MINIMALIST
-   - Clean typography
-   - Excellent whitespace
-   - Minimal decoration
-   - Professional premium appearance
+- Clean typography
+- Excellent whitespace
+- Simple professional appearance
+- Premium through spacing and hierarchy
 
 4. DARK LUXURY / DARK UI
-   - Dark background
-   - Subtle gradients
-   - Elegant typography
-   - Premium fintech/AI/technology appearance
+- Dark backgrounds
+- Subtle gradients
+- Elegant typography
+- Premium AI/fintech/technology appearance
 
 5. 3D / INTERACTIVE UI
-   - Depth
-   - Hover effects
-   - Transformations
-   - Subtle animations
-   - Interactive visual details
+- Depth
+- Hover effects
+- Transformations
+- Subtle animations
+- Interactive elements
 
-CRITICAL:
-Only the visual style should change between variations.
-The requested UI component and its functionality must remain consistent.
+CRITICAL RULE:
 
-For example, if the user asks for a pricing section:
+Only the visual design should change.
 
-CORRECT:
-1. Glassmorphism pricing section
-2. Bento pricing section
-3. Minimalist pricing section
-4. Dark luxury pricing section
-5. 3D interactive pricing section
+The requested UI component MUST remain the same.
 
-INCORRECT:
-1. Pricing section
-2. Pricing section
-3. Generic glass card
-4. Generic bento card
-5. Generic minimalist card
+Example:
 
-Every variation must be useful as a real production UI component.
+User:
+"Create a pricing section"
 
-Keep the generated code concise.
+Correct:
+
+1. Glassmorphism Pricing Section
+2. Bento Grid Pricing Section
+3. Minimalist Pricing Section
+4. Dark Luxury Pricing Section
+5. 3D Interactive Pricing Section
+
+Incorrect:
+
+1. Pricing Section
+2. Pricing Section
+3. Generic Glass Card
+4. Generic Bento Card
+5. Generic Minimalist Card
+
+Every design must be useful as a real production UI component.
+
+Use Tailwind CSS classes.
+
+Generate React components using JSX.
+
+Do NOT use TypeScript.
+
+Keep code reasonably concise.
+
 Do not generate huge SVGs.
-Do not generate unnecessary paragraphs.
+
 Do not include markdown code fences inside JSON strings.
 
-Return EXACTLY this JSON structure:
+Return ONLY valid JSON.
+
+The JSON structure MUST be:
 
 {
   "rejected": false,
   "variations": [
     {
       "id": "var_1",
-      "title": "Glassmorphism ...",
+      "title": "...",
       "style": "GLASSMORPHISM",
-      "html": "Pure HTML using Tailwind CSS classes",
-      "reactCode": "Functional React component using Tailwind CSS",
-      "css": "Minimal custom CSS or empty string",
-      "js": "Optional JavaScript or empty string"
+      "html": "...",
+      "reactCode": "...",
+      "css": "",
+      "js": ""
     },
     {
       "id": "var_2",
-      "title": "Bento ...",
+      "title": "...",
       "style": "BENTO GRID",
       "html": "...",
       "reactCode": "...",
@@ -120,7 +154,7 @@ Return EXACTLY this JSON structure:
     },
     {
       "id": "var_3",
-      "title": "Minimalist ...",
+      "title": "...",
       "style": "MINIMALIST",
       "html": "...",
       "reactCode": "...",
@@ -129,7 +163,7 @@ Return EXACTLY this JSON structure:
     },
     {
       "id": "var_4",
-      "title": "Dark Luxury ...",
+      "title": "...",
       "style": "DARK LUXURY / DARK UI",
       "html": "...",
       "reactCode": "...",
@@ -138,7 +172,7 @@ Return EXACTLY this JSON structure:
     },
     {
       "id": "var_5",
-      "title": "3D Interactive ...",
+      "title": "...",
       "style": "3D / INTERACTIVE UI",
       "html": "...",
       "reactCode": "...",
@@ -148,44 +182,81 @@ Return EXACTLY this JSON structure:
   ]
 }
 
-DO NOT return fewer than 5 variations unless the request is rejected.
-DO NOT return unrelated fallback components.
+NEVER return unrelated fallback components.
 `;
 
 
 /**
- * Extract text from Gemini response.
+ * Call OpenRouter.
  */
-function extractResponseText(response) {
-  if (!response) return '';
+async function callOpenRouter(prompt) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
 
-  if (typeof response.text === 'function') {
-    try {
-      return response.text();
-    } catch (e) {
-      // Continue with fallback extraction
+  if (!apiKey) {
+    throw new Error('OPENROUTER_API_KEY is not configured.');
+  }
+
+  const response = await fetch(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer':
+          process.env.NEXT_PUBLIC_SITE_URL ||
+          'https://agenticui-ten.vercel.app',
+        'X-Title': 'AgenticUI'
+      },
+      body: JSON.stringify({
+        model: 'openrouter/free',
+
+        messages: [
+          {
+            role: 'system',
+            content: SYSTEM_PROMPT
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+
+        temperature: 0.7,
+
+        max_tokens: 20000,
+
+        
+      })
     }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error('OpenRouter API Error:', data);
+
+    throw new Error(
+      data?.error?.message ||
+      `OpenRouter request failed with status ${response.status}`
+    );
   }
 
-  if (typeof response.text === 'string') {
-    return response.text;
+  const content =
+    data?.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error('OpenRouter returned an empty response.');
   }
 
-  if (
-    response.candidates &&
-    response.candidates[0]?.content?.parts?.[0]?.text
-  ) {
-    return response.candidates[0].content.parts[0].text;
-  }
-
-  return '';
+  return content;
 }
 
 
 /**
- * Clean JSON returned by Gemini.
+ * Clean AI response.
  */
-function cleanJsonText(text) {
+function cleanJson(text) {
   return text
     .replace(/```json/gi, '')
     .replace(/```/g, '')
@@ -194,119 +265,71 @@ function cleanJsonText(text) {
 
 
 /**
- * Parse Gemini JSON.
+ * Parse AI JSON.
  */
-function parseGeminiJson(rawText) {
-  if (!rawText) {
-    throw new Error('Empty response from AI');
+function parseJson(text) {
+  if (!text || typeof text !== 'string') {
+    throw new Error('AI returned an empty response.');
   }
 
-  const cleaned = cleanJsonText(rawText);
+  let cleaned = text.trim();
 
+  // Remove markdown code fences
+  cleaned = cleaned
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+  // First attempt
   try {
     return JSON.parse(cleaned);
-  } catch (parseError) {
-    console.error(
-      'JSON Parse Error. Response length:',
-      cleaned.length
+  } catch (error) {
+    console.log('Direct JSON parse failed. Trying extraction...');
+  }
+
+  // Find the outer JSON object
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    const extracted = cleaned.slice(
+      firstBrace,
+      lastBrace + 1
     );
 
-    // Attempt basic repair.
-    let fixedText = cleaned;
-
-    // Remove trailing backslash.
-    if (fixedText.endsWith('\\')) {
-      fixedText = fixedText.slice(0, -1);
-    }
-
-    // Remove trailing comma.
-    fixedText = fixedText.replace(/,\s*([}\]])\s*$/, '$1');
-
-    // Balance brackets/braces.
-    const stack = [];
-    let inString = false;
-    let escaped = false;
-
-    for (let i = 0; i < fixedText.length; i++) {
-      const char = fixedText[i];
-
-      if (char === '"' && !escaped) {
-        inString = !inString;
-      }
-
-      if (!inString) {
-        if (char === '{' || char === '[') {
-          stack.push(char);
-        } else if (char === '}') {
-          if (stack[stack.length - 1] === '{') {
-            stack.pop();
-          }
-        } else if (char === ']') {
-          if (stack[stack.length - 1] === '[') {
-            stack.pop();
-          }
-        }
-      }
-
-      escaped = char === '\\' && !escaped;
-    }
-
-    while (stack.length > 0) {
-      const open = stack.pop();
-      fixedText += open === '{' ? '}' : ']';
-    }
-
     try {
-      return JSON.parse(fixedText);
-    } catch (repairError) {
-      console.error(
-        'JSON repair failed:',
-        repairError.message
+      return JSON.parse(extracted);
+    } catch (error) {
+      console.log(
+        'JSON extraction failed. Trying cleanup...'
       );
-
-      throw parseError;
     }
   }
-}
 
+  // Try removing common model-added text
+  const jsonMatch = cleaned.match(
+    /\{[\s\S]*\}/
+  );
 
-/**
- * Generate designs using Gemini.
- */
-async function generateWithGemini(
-  ai,
-  modelName,
-  userPrompt,
-  additionalInstruction = ''
-) {
-  const generationPrompt = `
-USER REQUEST:
-${userPrompt}
-
-${additionalInstruction}
-
-Generate the requested UI component now.
-
-Remember:
-- Generate exactly 5 distinct visual variations.
-- Every variation must represent the SAME component requested by the user.
-- Only the design style should change.
-- Do not substitute generic cards or unrelated components.
-`;
-
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: generationPrompt,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-      responseMimeType: 'application/json',
-      maxOutputTokens: 20000
+  if (jsonMatch) {
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (error) {
+      console.log(
+        'Final JSON parsing attempt failed.'
+      );
     }
-  });
+  }
 
-  const rawText = extractResponseText(response);
+  console.error(
+    'RAW AI RESPONSE:',
+    cleaned
+  );
 
-  return parseGeminiJson(rawText);
+  throw new Error(
+    'AI returned invalid JSON.'
+  );
 }
 
 
@@ -314,140 +337,84 @@ Remember:
  * Validate generated variations.
  */
 function validateVariations(data) {
-  if (!data || data.rejected === true) {
-    return {
-      valid: false,
-      rejected: true,
-      variations: []
-    };
+  if (!data) {
+    return null;
+  }
+
+  if (data.rejected === true) {
+    return data;
   }
 
   if (!Array.isArray(data.variations)) {
-    return {
-      valid: false,
-      rejected: false,
-      variations: []
-    };
+    return null;
   }
 
-  const validVariations = data.variations
-    .filter((variation) => {
-      return (
-        variation &&
-        typeof variation === 'object' &&
-        variation.title &&
-        variation.reactCode
-      );
-    })
-    .slice(0, 5);
+  const valid = data.variations.filter(
+    (variation) =>
+      variation &&
+      variation.title &&
+      variation.reactCode &&
+      variation.html
+  );
+
+  if (valid.length !== 5) {
+    return null;
+  }
 
   return {
-    valid: validVariations.length === 5,
     rejected: false,
-    variations: validVariations
+    variations: valid.slice(0, 5)
   };
 }
 
 
 /**
- * Generate missing designs if Gemini did not return all five.
+ * Generate UI designs.
  */
-async function generateMissingDesigns(
-  ai,
-  modelName,
-  userPrompt,
-  existingVariations
-) {
-  const existingStyles = existingVariations
-    .map((variation) => variation.style)
-    .filter(Boolean);
+async function generateDesigns(prompt) {
+  const responseText = await callOpenRouter(`
+USER REQUEST:
 
-  const missingStyles = DESIGN_PROFILES.filter(
-    (style) => !existingStyles.includes(style)
-  );
+${prompt}
 
-  if (missingStyles.length === 0) {
-    return existingVariations;
+Generate exactly five UI design variations.
+
+Remember:
+- Same requested component in all five variations.
+- Different visual design for each variation.
+- Use the five required design profiles.
+- Return ONLY JSON.
+`);
+
+  const data = parseJson(responseText);
+
+  const validated = validateVariations(data);
+
+  if (!validated) {
+    throw new Error(
+      'AI did not return exactly 5 valid UI designs.'
+    );
   }
 
-  const missingStylesText = missingStyles
-    .map((style, index) => `${index + 1}. ${style}`)
-    .join('\n');
-
-  const completionPrompt = `
-The previous AI generation did not successfully produce all five designs.
-
-USER REQUEST:
-${userPrompt}
-
-ALREADY GENERATED:
-${existingVariations
-  .map(
-    (variation, index) =>
-      `${index + 1}. ${variation.title} (${variation.style || 'unknown style'})`
-  )
-  .join('\n')}
-
-MISSING DESIGN STYLES:
-${missingStylesText}
-
-Generate ONLY the missing design variations.
-
-CRITICAL:
-Every missing design must be the SAME UI COMPONENT requested by the user.
-
-For example:
-If the user requested a pricing section, generate missing pricing sections.
-Do NOT generate generic cards.
-
-Return this JSON structure:
-
-{
-  "variations": [
-    {
-      "id": "missing_1",
-      "title": "...",
-      "style": "...",
-      "html": "...",
-      "reactCode": "...",
-      "css": "",
-      "js": ""
-    }
-  ]
-}
-
-Generate exactly ${missingStyles.length} missing variations.
-`;
-
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: completionPrompt,
-    config: {
-      systemInstruction: SYSTEM_PROMPT,
-      responseMimeType: 'application/json',
-      maxOutputTokens: 16000
-    }
-  });
-
-  const rawText = extractResponseText(response);
-  const data = parseGeminiJson(rawText);
-
-  const additions = Array.isArray(data.variations)
-    ? data.variations
-    : [];
-
-  return [...existingVariations, ...additions].slice(0, 5);
+  return validated;
 }
 
 
 export async function POST(req) {
   try {
-    const { prompt } = await req.json();
+    const body = await req.json();
 
-    if (!prompt || typeof prompt !== 'string') {
+    const prompt = body?.prompt;
+
+    if (
+      !prompt ||
+      typeof prompt !== 'string' ||
+      !prompt.trim()
+    ) {
       return NextResponse.json(
         {
-          error: 'Please provide a valid UI design prompt.'
+          error:
+            'Please enter a valid UI design prompt.'
         },
         { status: 400 }
       );
@@ -455,284 +422,92 @@ export async function POST(req) {
 
     const cleanPrompt = prompt.trim();
 
-    if (!cleanPrompt) {
-      return NextResponse.json(
-        {
-          error: 'Please enter a UI design prompt.'
-        },
-        { status: 400 }
-      );
-    }
-
-    const cacheKey = cleanPrompt.toLowerCase();
+    const cacheKey =
+      cleanPrompt.toLowerCase();
 
     /**
-     * Cache
+     * Return cached result.
      */
     if (cache.has(cacheKey)) {
-      console.log('Serving from cache...');
-      return NextResponse.json(cache.get(cacheKey));
-    }
-
-    /**
-     * Mock mode for local development.
-     *
-     * IMPORTANT:
-     * If you want real AI generation, GEMINI_API_KEY must be configured.
-     */
-    if (!process.env.GEMINI_API_KEY) {
       console.log(
-        'No GEMINI_API_KEY found. Running mock mode.'
+        'Serving cached design...'
       );
 
-      return NextResponse.json({
-        rejected: false,
-        variations: [
-          {
-            id: 'mock_1',
-            title: 'Mock Glassmorphism',
-            style: 'GLASSMORPHISM',
-            html: '<div class="p-8 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20">Glassmorphism Preview</div>',
-            reactCode: `export default function Component() {
-  return (
-    <div className="p-8 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20">
-      Glassmorphism Preview
-    </div>
-  );
-}`,
-            css: '',
-            js: ''
-          },
-          {
-            id: 'mock_2',
-            title: 'Mock Bento Grid',
-            style: 'BENTO GRID',
-            html: '<div class="grid grid-cols-2 gap-4">Bento Grid Preview</div>',
-            reactCode: `export default function Component() {
-  return (
-    <div className="grid grid-cols-2 gap-4">
-      Bento Grid Preview
-    </div>
-  );
-}`,
-            css: '',
-            js: ''
-          },
-          {
-            id: 'mock_3',
-            title: 'Mock Minimalist',
-            style: 'MINIMALIST',
-            html: '<div class="p-8 border rounded-xl">Minimalist Preview</div>',
-            reactCode: `export default function Component() {
-  return (
-    <div className="p-8 border rounded-xl">
-      Minimalist Preview
-    </div>
-  );
-}`,
-            css: '',
-            js: ''
-          },
-          {
-            id: 'mock_4',
-            title: 'Mock Dark Luxury',
-            style: 'DARK LUXURY / DARK UI',
-            html: '<div class="p-8 bg-zinc-950 text-white rounded-xl">Dark Luxury Preview</div>',
-            reactCode: `export default function Component() {
-  return (
-    <div className="p-8 bg-zinc-950 text-white rounded-xl">
-      Dark Luxury Preview
-    </div>
-  );
-}`,
-            css: '',
-            js: ''
-          },
-          {
-            id: 'mock_5',
-            title: 'Mock 3D Interactive',
-            style: '3D / INTERACTIVE UI',
-            html: '<div class="p-8 rounded-xl shadow-2xl hover:scale-105 transition-transform">3D Preview</div>',
-            reactCode: `export default function Component() {
-  return (
-    <div className="p-8 rounded-xl shadow-2xl hover:scale-105 transition-transform">
-      3D Preview
-    </div>
-  );
-}`,
-            css: '',
-            js: ''
-          }
-        ]
-      });
-    }
-
-    /**
-     * Initialize Gemini.
-     */
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY
-    });
-
-    const modelsToTry = [
-      'gemini-2.5-flash'
-    ];
-
-    let finalData = null;
-    let lastError = null;
-
-    /**
-     * Try multiple Gemini models.
-     */
-    for (const modelName of modelsToTry) {
-      try {
-        console.log(
-          `Attempting generation with model: ${modelName}`
-        );
-
-        /**
-         * First generation.
-         */
-        const firstData = await generateWithGemini(
-          ai,
-          modelName,
-          cleanPrompt
-        );
-
-        const validated = validateVariations(firstData);
-
-        /**
-         * Rejected request.
-         */
-        if (firstData.rejected === true) {
-          finalData = firstData;
-          lastError = null;
-          break;
-        }
-
-        let variations = validated.variations;
-
-        console.log(
-          `First generation returned ${variations.length} variations.`
-        );
-
-        /**
-         * If fewer than five designs were returned,
-         * ask Gemini to generate the missing ones.
-         */
-        if (variations.length < 5) {
-          console.log(
-            `Generating ${5 - variations.length} missing variations...`
-          );
-
-          try {
-            variations = await generateMissingDesigns(
-              ai,
-              modelName,
-              cleanPrompt,
-              variations
-            );
-          } catch (completionError) {
-            console.error(
-              'Missing design generation failed:',
-              completionError.message
-            );
-          }
-        }
-
-        /**
-         * Final validation.
-         */
-        if (variations.length === 5) {
-          finalData = {
-            rejected: false,
-            variations
-          };
-
-          lastError = null;
-          break;
-        }
-
-        /**
-         * Don't use unrelated fallback designs.
-         *
-         * Instead, try the next Gemini model.
-         */
-        throw new Error(
-          `AI returned only ${variations.length}/5 valid designs.`
-        );
-      } catch (err) {
-        console.error(
-          `AI Generation with ${modelName} failed:`,
-          err.message || err
-        );
-
-        lastError = err;
-
-        /**
-         * Wait before trying another model.
-         */
-        await new Promise((resolve) =>
-          setTimeout(resolve, 1000)
-        );
-      }
-    }
-
-    /**
-     * If every model failed, return an actual error.
-     * We intentionally DO NOT return unrelated fallback designs.
-     */
-    if (!finalData) {
-      throw (
-        lastError ||
-        new Error(
-          'Unable to generate all 5 requested UI variations.'
-        )
+      return NextResponse.json(
+        cache.get(cacheKey)
       );
     }
+
+    /**
+     * Generate designs.
+     */
+    const result =
+      await generateDesigns(cleanPrompt);
 
     /**
      * Cache successful result.
      */
-    cache.set(cacheKey, finalData);
+    cache.set(
+      cacheKey,
+      result
+    );
 
-    return NextResponse.json(finalData);
+    return NextResponse.json(result);
+
   } catch (error) {
     console.error(
-      'Agent Pipeline Error:',
+      'AgenticUI Generation Error:',
       error
     );
 
-    const errorMsg =
-      error?.message || 'Unknown error';
+    const message =
+      error?.message ||
+      'Unknown AI generation error.';
 
     let userMessage =
-      'The AI could not generate all 5 UI designs. Please try again.';
+      'AI generation failed. Please try again.';
 
     if (
-      errorMsg.includes('429') ||
-      errorMsg.includes('quota') ||
-      errorMsg.includes('RESOURCE_EXHAUSTED')
+      message.includes(
+        'OPENROUTER_API_KEY'
+      )
     ) {
       userMessage =
-        'API quota exceeded. Please wait a few moments and try again.';
-    } else if (errorMsg.includes('404')) {
-      userMessage =
-        'The selected Gemini model could not be found. Please check the model configuration.';
-    } else if (
-      errorMsg.includes('API key') ||
-      errorMsg.includes('API_KEY')
+        'OpenRouter API key is missing. Please configure OPENROUTER_API_KEY.';
+    }
+
+    if (
+      message.includes(
+        'quota'
+      ) ||
+      message.includes(
+        'rate'
+      )
     ) {
       userMessage =
-        'Gemini API key is missing or invalid.';
+        'The free AI model is temporarily rate-limited. Please try again shortly.';
+    }
+
+    if (
+      message.includes(
+        'invalid'
+      ) &&
+      message.includes(
+        'JSON'
+      )
+    ) {
+      userMessage =
+        'The AI returned an invalid design response. Please try again.';
     }
 
     return NextResponse.json(
       {
         error: userMessage,
-        details: errorMsg
+        details: message
       },
-      { status: 500 }
+      {
+        status: 500
+      }
     );
   }
 }

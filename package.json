@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@google/genai": "^1.46.0",
     "@radix-ui/react-slot": "^1.2.4",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
