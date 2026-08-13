@@ -40,7 +40,8 @@ export function MainUI() {
       }
       
       if (data.error || !data.variations) {
-        throw new Error(data.error || "The AI generated an incomplete response.");
+        const errorMsg = data.details ? `${data.error} (${data.details})` : (data.error || "The AI generated an incomplete response.");
+        throw new Error(errorMsg);
       }
       setGeneratedData(data);
       setSelectedComponent(null);
@@ -196,7 +197,7 @@ export function MainUI() {
               </div>
               <div>
                 <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">Component Variations</h2>
-                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">10 premium designs ready to use.</p>
+                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{generatedData.variations.length} premium designs ready to use.</p>
               </div>
             </div>
             <Button onClick={() => setGeneratedData(null)} variant="outline" className="border-zinc-200 dark:border-zinc-800 bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-900 text-zinc-900 dark:text-zinc-50 text-sm font-semibold shadow-sm rounded-xl">
