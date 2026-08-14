@@ -90,11 +90,11 @@ export function MainUI() {
     return (
       <main className="flex-1 flex flex-col items-center justify-center min-h-[calc(100vh-3.5rem)] px-4 py-20 bg-zinc-50 dark:bg-[#030303] relative overflow-hidden">
         {/* Soft Ambient Mesh Gradients */}
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-[100px] pointer-events-none mix-blend-screen animate-pulse duration-[10000ms]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/10 dark:bg-cyan-500/15 rounded-full blur-[120px] pointer-events-none mix-blend-screen animate-pulse duration-[12000ms]"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-[100px] pointer-events-none mix-blend-screen animate-pulse duration-10000"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/10 dark:bg-cyan-500/15 rounded-full blur-[120px] pointer-events-none mix-blend-screen animate-pulse duration-12000"></div>
         
         {/* Subtle dot grid pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px] pointer-events-none"></div>
         <div className="absolute inset-0 bg-zinc-50/50 dark:bg-[#030303]/50 pointer-events-none" style={{ maskImage: 'radial-gradient(ellipse at center, transparent 20%, black 80%)' }}></div>
 
         <div className="w-full max-w-4xl flex flex-col items-center text-center space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-1000 relative z-10">
@@ -105,7 +105,7 @@ export function MainUI() {
             </div>
             <h1 className="text-5xl sm:text-6xl md:text-8xl font-bold tracking-tighter text-zinc-900 dark:text-white drop-shadow-sm">
               Generate UI, <br className="hidden md:block"/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400">instantly.</span>
+              <span className="text-transparent bg-clip-text bg-linear-to-r from-indigo-500 via-purple-500 to-cyan-400">instantly.</span>
             </h1>
             <p className="text-lg md:text-2xl text-zinc-600 dark:text-zinc-400 max-w-2xl mx-auto font-medium leading-relaxed">
               Describe the component you need. Receive stunning, beautifully crafted React code in seconds.
@@ -114,14 +114,14 @@ export function MainUI() {
 
           <div className="w-full relative max-w-3xl mt-8 group">
              {/* Glowing border effect behind input */}
-             <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-cyan-500 rounded-3xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
+             <div className="absolute -inset-0.5 bg-linear-to-r from-indigo-500 to-cyan-500 rounded-3xl blur opacity-20 group-focus-within:opacity-40 transition duration-1000"></div>
              
              <div className="relative bg-white/80 dark:bg-zinc-950/80 backdrop-blur-2xl border border-zinc-200 dark:border-zinc-800/80 shadow-2xl rounded-2xl flex flex-col overflow-hidden transition-all focus-within:ring-1 focus-within:ring-zinc-400 dark:focus-within:ring-zinc-600">
                <textarea 
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Build a pricing section with glassmorphism..."
-                  className="w-full min-h-[140px] text-lg lg:text-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-600 resize-none border-0 outline-none p-6 bg-transparent text-zinc-900 dark:text-zinc-50"
+                  className="w-full min-h-35 text-lg lg:text-xl placeholder:text-zinc-400 dark:placeholder:text-zinc-600 resize-none border-0 outline-none p-6 bg-transparent text-zinc-900 dark:text-zinc-50"
                   spellCheck={false}
                />
                <div className="p-3 bg-zinc-50/50 dark:bg-zinc-900/30 backdrop-blur-md flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800/50">
@@ -132,7 +132,7 @@ export function MainUI() {
                   <button 
                     onClick={handleGenerate} 
                     disabled={!prompt.trim() || isGenerating}
-                    className="flex items-center justify-center gap-2 bg-gradient-to-b from-zinc-800 to-zinc-950 dark:from-zinc-100 dark:to-zinc-300 text-white dark:text-black hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all rounded-xl px-6 py-2.5 text-sm font-bold shadow-md hover:shadow-lg"
+                    className="flex items-center justify-center gap-2 bg-linear-to-b from-zinc-800 to-zinc-950 dark:from-zinc-100 dark:to-zinc-300 text-white dark:text-black hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all rounded-xl px-6 py-2.5 text-sm font-bold shadow-md hover:shadow-lg"
                   >
                     {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
                     {isGenerating ? 'Agents Thinking...' : 'Generate Code'}
@@ -188,7 +188,7 @@ export function MainUI() {
   if (selectedComponent === null) {
     return (
       <div className="flex-1 flex flex-col h-[calc(100vh-3.5rem)] overflow-y-auto bg-zinc-50/50 dark:bg-[#050505] p-4 lg:p-8 relative">
-        <div className="absolute top-0 inset-x-0 h-64 bg-gradient-to-b from-indigo-500/5 to-transparent pointer-events-none"></div>
+        <div className="absolute top-0 inset-x-0 h-64 bg-linear-to-b from-indigo-500/5 to-transparent pointer-events-none"></div>
         <div className="max-w-7xl mx-auto w-full space-y-8 relative z-10">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-2 bg-white/50 dark:bg-zinc-900/30 backdrop-blur-xl p-4 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm">
             <div className="flex items-center gap-3">
@@ -209,7 +209,7 @@ export function MainUI() {
             {generatedData.variations.map((comp, idx) => (
               <div 
                 key={comp.id || idx} 
-                className="group border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden shadow-sm hover:shadow-xl hover:border-indigo-500/30 transition-all cursor-pointer flex flex-col h-[400px]"
+                className="group border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden shadow-sm hover:shadow-xl hover:border-indigo-500/30 transition-all cursor-pointer flex flex-col h-100"
                 onClick={() => { setSelectedComponent(idx); setActiveTab('preview'); }}
               >
                  <div className="flex-1 w-full bg-[#f8f9fa] dark:bg-[#0a0a0c] relative pointer-events-none overflow-hidden">
@@ -226,7 +226,7 @@ export function MainUI() {
                       </html>
                     `}
                   />
-                  <div className="absolute inset-0 z-20 bg-gradient-to-b from-transparent to-black/5 dark:to-black/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="absolute inset-0 z-20 bg-linear-to-b from-transparent to-black/5 dark:to-black/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </div>
                 
                 <div className="p-5 border-t border-zinc-100 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur flex justify-between items-center group-hover:bg-zinc-50 dark:group-hover:bg-zinc-900 transition-colors z-30">
@@ -286,8 +286,8 @@ export function MainUI() {
       <div className="flex-1 flex overflow-hidden relative">
          {activeTab === 'preview' ? (
            <div className="flex-1 bg-zinc-50 dark:bg-[#050505] flex flex-col p-6 lg:p-12 overflow-auto relative">
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
-              <div className="flex-1 w-full max-w-[1400px] mx-auto min-h-[500px] bg-white dark:bg-[#0a0a0c] border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] overflow-hidden relative z-10 transition-all">
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-size-[24px_24px] pointer-events-none"></div>
+              <div className="flex-1 w-full max-w-350 mx-auto min-h-125 bg-white dark:bg-[#0a0a0c] border border-zinc-200/80 dark:border-zinc-800/80 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] overflow-hidden relative z-10 transition-all">
                 <iframe 
                   className="w-full h-full text-black" 
                   srcDoc={`

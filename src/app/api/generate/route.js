@@ -1,512 +1,1382 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 const cache = new Map();
 
-const DESIGN_PROFILES = [
-  'GLASSMORPHISM',
-  'BENTO GRID',
-  'MINIMALIST',
-  'DARK LUXURY / DARK UI',
-  '3D / INTERACTIVE UI'
-];
+/*
+ * IMPORTANT:
+ * We generate ONE design per AI request.
+ *
+ * This avoids the previous problem where one free model
+ * had to generate 5 complete components in one huge JSON.
+ */
+const DESIGN_STYLES = [
+  {
+    key: "GLASSMORPHISM",
 
-const SYSTEM_PROMPT = `
-You are an expert AI UI/UX design generation system.
+    personality:
+      "Elegant, futuristic, atmospheric and luminous.",
 
-Your job is to generate high-quality production-ready UI COMPONENTS
-based on the user's exact request.
+    instruction: `
+Create a sophisticated glassmorphism interface.
+
+VISUAL LANGUAGE:
+- layered translucent surfaces
+- backdrop blur
+- subtle 1px borders
+- soft ambient gradients
+- controlled cyan, violet or blue accent lighting
+- depth created through overlapping surfaces
+- refined shadows rather than heavy shadows
+- subtle inner highlights
+- dark or soft neutral background depending on the component
+
+COMPOSITION:
+- create clear foreground and background layers
+- use depth to establish hierarchy
+- keep the primary action visually dominant
+- use floating elements where appropriate
+- avoid turning every element into a glass card
 
 IMPORTANT:
+Glassmorphism should feel intentional and premium,
+not like random transparent boxes.
+
+Avoid excessive blur.
+Avoid excessive glow.
+Avoid making every section identical.
+`,
+  },
+
+  {
+    key: "BENTO GRID",
+
+    personality:
+      "Editorial, modular, expressive and information-rich.",
+
+    instruction: `
+Create a sophisticated bento-grid interface inspired by
+modern premium product websites.
+
+VISUAL LANGUAGE:
+- asymmetric grid
+- varied card sizes
+- strong visual hierarchy
+- large feature areas
+- compact supporting cards
+- intentional empty space
+- subtle borders
+- restrained shadows
+- rounded but not excessively rounded containers
+
+COMPOSITION:
+- do NOT use a simple equal 3-column card grid
+- combine large and small content blocks
+- create one dominant visual focal point
+- use different content densities
+- allow important information to occupy more space
+
+IMPORTANT:
+The layout must feel deliberately art-directed.
+
+Do not simply place normal cards inside a CSS grid.
+`,
+  },
+
+  {
+    key: "MINIMALIST",
+
+    personality:
+      "Precise, calm, refined, editorial and typography-focused.",
+
+    instruction: `
+Create a high-end minimalist interface.
+
+VISUAL LANGUAGE:
+- generous whitespace
+- typography-first hierarchy
+- restrained neutral palette
+- one carefully selected accent color
+- thin borders
+- subtle separators
+- almost no unnecessary shadows
+- clean geometric alignment
+- strong baseline rhythm
+
+COMPOSITION:
+- prioritize typography and spacing
+- create clear visual hierarchy without decoration
+- use whitespace as a design element
+- make important information immediately scannable
+- avoid excessive cards
+
+IMPORTANT:
+The design should feel expensive because of its
+precision, not because of visual effects.
+
+Think Linear, Stripe, Apple and premium editorial design.
+Do not copy their layouts.
+`,
+  },
+
+  {
+    key: "DARK LUXURY / DARK UI",
+
+    personality:
+      "Exclusive, dramatic, sophisticated and highly refined.",
+
+    instruction: `
+Create a premium dark luxury interface.
+
+VISUAL LANGUAGE:
+- near-black or deep charcoal background
+- layered dark surfaces
+- sophisticated contrast
+- muted metallic or electric accent
+- subtle gradients
+- refined shadows
+- restrained highlights
+- premium typography
+
+COMPOSITION:
+- establish a dramatic focal point
+- use contrast to guide attention
+- combine large typography with compact supporting content
+- use accent color sparingly
+- create depth through tonal differences
+
+IMPORTANT:
+Do NOT make the design look like a generic developer dashboard.
+
+Avoid excessive neon.
+Avoid rainbow gradients.
+Avoid excessive glowing borders.
+
+The result should feel like a premium enterprise SaaS
+or luxury technology product.
+`,
+  },
+
+  {
+    key: "3D / INTERACTIVE UI",
+
+    personality:
+      "Immersive, dimensional, futuristic and playful.",
+
+    instruction: `
+Create a sophisticated 3D-inspired interactive interface.
+
+VISUAL LANGUAGE:
+- layered depth
+- perspective
+- floating surfaces
+- dimensional shadows
+- subtle rotations
+- depth-aware spacing
+- gradient lighting
+- interactive hover states
+
+INTERACTION:
+- cards can subtly lift on hover
+- buttons can respond to hover
+- important elements may use transform and perspective
+- use CSS transitions
+- interactions must remain smooth and subtle
+
+COMPOSITION:
+- create a strong foreground object
+- place secondary information behind or around it
+- use depth to establish hierarchy
+- create a sense of physical space
+
+IMPORTANT:
+Do NOT use external 3D libraries.
+
+Do NOT create complicated WebGL.
+
+Use CSS transforms, gradients, shadows and perspective.
+
+The result should feel interactive without becoming a gimmick.
+`,
+  },
+];
+
+
+/*
+ * Cache generated results during the lifetime of the server.
+ */
+
+
+
+/*
+ * Main system instructions.
+ *
+ * Notice that we generate only ONE component per call.
+ */
+const BASE_SYSTEM_PROMPT = `
+You are Brahmastra Design — an elite UI/UX designer,
+design-system architect and React frontend engineer.
+
+Your job is to transform the user's UI request into
+ONE exceptionally polished production-quality interface.
+
+==================================================
+CORE OBJECTIVE
+==================================================
+
+The result must look intentionally designed by a
+professional product designer.
+
+Do NOT produce a generic AI-generated UI template.
+
+The design must have:
+
+- strong visual hierarchy
+- intentional composition
+- excellent typography
+- consistent spacing
+- meaningful contrast
+- realistic content
+- polished controls
+- responsive behavior
+- refined micro-interactions
+- professional information density
+- clear primary and secondary actions
+
+==================================================
+DESIGN THINKING
+==================================================
+
+Before writing the code, internally determine:
+
+1. What is the primary purpose of this component?
+2. What should the user notice first?
+3. What is the primary action?
+4. What information is secondary?
+5. How should the content be grouped?
+6. How should the layout behave on mobile?
+7. Which visual elements create hierarchy?
+
+Do NOT expose this reasoning.
+
+Only return the final JSON.
+
+==================================================
+COMPOSITION
+==================================================
+
+Composition is more important than decoration.
+
+Do NOT simply create:
+
+heading
+subtitle
+three cards
+button
+
+unless that structure genuinely fits the requested component.
+
+Use appropriate composition such as:
+
+- asymmetric layouts
+- split layouts
+- feature-focused layouts
+- editorial layouts
+- dashboard grids
+- layered sections
+- floating elements
+- comparison layouts
+- timelines
+- feature matrices
+- visual focal points
+
+The composition must match the requested component.
+
+==================================================
+VISUAL HIERARCHY
+==================================================
+
+Every design must clearly distinguish:
+
+PRIMARY:
+The most important content/action.
+
+SECONDARY:
+Supporting information.
+
+TERTIARY:
+Details that should remain visually quieter.
+
+Use:
+
+- scale
+- spacing
+- contrast
+- typography
+- position
+- borders
+- shadows
+- color
+
+to create hierarchy.
+
+==================================================
+TYPOGRAPHY
+==================================================
+
+Use typography intentionally.
+
+Recommended hierarchy:
+
+- large display heading
+- supporting description
+- section labels
+- card headings
+- body text
+- metadata
+
+Avoid making everything large and bold.
+
+Avoid excessive uppercase text.
+
+Avoid random font-size changes.
+
+==================================================
+SPACING
+==================================================
+
+Use a consistent spacing rhythm.
+
+Prefer generous spacing between major sections.
+
+Use tighter spacing inside related groups.
+
+Do not fill every available pixel.
+
+Whitespace should be intentional.
+
+==================================================
+COLOR
+==================================================
+
+Use a controlled palette.
+
+Prefer:
+
+- one primary accent
+- one secondary accent when useful
+- neutral background
+- neutral surfaces
+- semantic colors only when needed
+
+Avoid:
+
+- rainbow gradients
+- excessive neon
+- random colors
+- too many accent colors
+- low-contrast text
+
+==================================================
+INTERACTION
+==================================================
+
+Add subtle interactions when appropriate:
+
+- hover elevation
+- border transitions
+- opacity changes
+- scale transforms
+- button feedback
+- tab transitions
+- focus states
+
+Animations should be subtle and fast.
+
+Do not make the interface distracting.
+
+==================================================
+RESPONSIVENESS
+==================================================
+
+Desktop:
+Use the available width intelligently.
+
+Tablet:
+Reduce spacing and simplify multi-column layouts.
+
+Mobile:
+Stack content logically.
+
+Never allow:
+
+- horizontal overflow
+- clipped text
+- tiny buttons
+- unreadable tables
+- broken grids
+
+Use Tailwind responsive utilities.
+
+==================================================
+TECHNOLOGY
+==================================================
+
+Use:
+
+- React JSX
+- Tailwind CSS
+- semantic HTML
+- small custom CSS only when necessary
+- small JavaScript interactions only when necessary
+
+The HTML must work with:
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+The React component must be standalone JSX.
+
+==================================================
+DO NOT USE
+==================================================
+
+- TypeScript
+- Material UI
+- Bootstrap
+- external UI libraries
+- external image dependencies
+- huge SVG illustrations
+- huge mock datasets
+- fake framework imports
+- Next.js imports
+- unnecessary comments
+- excessive code
+
+==================================================
+ANTI-GENERIC RULE
+==================================================
+
+Do NOT create five variations that are simply the
+same layout with different colors.
+
+Each design will receive a different visual direction.
+
+The requested functionality must remain identical,
+but the:
+
+- composition
+- hierarchy
+- spacing
+- visual treatment
+- card arrangement
+- typography treatment
+- interaction pattern
+
+should meaningfully reflect the requested design style.
+
+==================================================
+COMPONENT FIDELITY
+==================================================
+
 The user's requested component is the source of truth.
 
-If the user asks for:
-- a pricing section → ALL designs must be pricing sections
-- a login page → ALL designs must be login pages
-- a dashboard → ALL designs must be dashboards
-- a navbar → ALL designs must be navbars
-- a hero section → ALL designs must be hero sections
-- a chatbot → ALL designs must be chatbot interfaces
-- a profile card → ALL designs must be profile cards
-
-NEVER replace the requested component with another component.
-
 If the user requests:
-- an entire website
-- a complete application
-- poetry
-- mathematics
-- general questions
-- anything unrelated to UI design
 
-return:
+pricing section → create pricing section.
 
-{
-  "rejected": true,
-  "reason": "Brief explanation",
-  "suggestions": [
-    "Specific UI component suggestion",
-    "Specific UI component suggestion",
-    "Specific UI component suggestion"
-  ]
-}
+dashboard → create dashboard.
 
-For valid UI requests, generate EXACTLY 5 DISTINCT DESIGN VARIATIONS.
+login page → create login page.
 
-The five visual design profiles are:
+navbar → create navbar.
 
-1. GLASSMORPHISM
-- Glass effects
-- Transparency
-- Backdrop blur
-- Gradients
-- Futuristic premium SaaS appearance
+product card → create product card.
 
-2. BENTO GRID
-- Modular card layout
-- Creative grid structure
-- Strong visual hierarchy
-- Modern SaaS aesthetic
+Do NOT replace the requested component with another component.
 
-3. MINIMALIST
-- Clean typography
-- Excellent whitespace
-- Simple professional appearance
-- Premium through spacing and hierarchy
+==================================================
+CODE QUALITY
+==================================================
 
-4. DARK LUXURY / DARK UI
-- Dark backgrounds
-- Subtle gradients
-- Elegant typography
-- Premium AI/fintech/technology appearance
+Write clean, readable JSX.
 
-5. 3D / INTERACTIVE UI
-- Depth
-- Hover effects
-- Transformations
-- Subtle animations
-- Interactive elements
+Use semantic elements.
 
-CRITICAL RULE:
+Use reusable structures where appropriate.
 
-Only the visual design should change.
+Keep the implementation reasonably compact.
 
-The requested UI component MUST remain the same.
+Do not generate unnecessary code.
 
-Example:
-
-User:
-"Create a pricing section"
-
-Correct:
-
-1. Glassmorphism Pricing Section
-2. Bento Grid Pricing Section
-3. Minimalist Pricing Section
-4. Dark Luxury Pricing Section
-5. 3D Interactive Pricing Section
-
-Incorrect:
-
-1. Pricing Section
-2. Pricing Section
-3. Generic Glass Card
-4. Generic Bento Card
-5. Generic Minimalist Card
-
-Every design must be useful as a real production UI component.
-
-Use Tailwind CSS classes.
-
-Generate React components using JSX.
-
-Do NOT use TypeScript.
-
-Keep code reasonably concise.
-
-Do not generate huge SVGs.
-
-Do not include markdown code fences inside JSON strings.
+==================================================
+OUTPUT
+==================================================
 
 Return ONLY valid JSON.
 
-The JSON structure MUST be:
+Do not use markdown.
+
+Do not use code fences.
+
+Do not add explanations outside the JSON.
+
+The JSON must contain:
 
 {
-  "rejected": false,
-  "variations": [
-    {
-      "id": "var_1",
-      "title": "...",
-      "style": "GLASSMORPHISM",
-      "html": "...",
-      "reactCode": "...",
-      "css": "",
-      "js": ""
-    },
-    {
-      "id": "var_2",
-      "title": "...",
-      "style": "BENTO GRID",
-      "html": "...",
-      "reactCode": "...",
-      "css": "",
-      "js": ""
-    },
-    {
-      "id": "var_3",
-      "title": "...",
-      "style": "MINIMALIST",
-      "html": "...",
-      "reactCode": "...",
-      "css": "",
-      "js": ""
-    },
-    {
-      "id": "var_4",
-      "title": "...",
-      "style": "DARK LUXURY / DARK UI",
-      "html": "...",
-      "reactCode": "...",
-      "css": "",
-      "js": ""
-    },
-    {
-      "id": "var_5",
-      "title": "...",
-      "style": "3D / INTERACTIVE UI",
-      "html": "...",
-      "reactCode": "...",
-      "css": "",
-      "js": ""
-    }
-  ]
+  "title": "...",
+  "style": "...",
+  "html": "...",
+  "reactCode": "...",
+  "css": "...",
+  "js": "..."
 }
-
-NEVER return unrelated fallback components.
 `;
 
 
-/**
- * Call OpenRouter.
+const OPENROUTER_MODEL_CANDIDATES = [
+  process.env.OPENROUTER_MODEL,
+  "openai/gpt-4o-mini",
+  "google/gemini-2.0-flash-001",
+  "anthropic/claude-3.5-haiku",
+].filter(Boolean);
+
+function extractMessageContent(data) {
+  if (!data) return "";
+
+  const choice = data?.choices?.[0];
+  const message = choice?.message || {};
+  const contentCandidates = [
+    message.content,
+    choice?.text,
+    choice?.content,
+    message?.content?.[0]?.text,
+  ];
+
+  for (const candidate of contentCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+
+    if (Array.isArray(candidate)) {
+      const text = candidate
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (item && typeof item.text === "string") return item.text;
+          if (item && typeof item.content === "string") return item.content;
+          return "";
+        })
+        .join("\n")
+        .trim();
+
+      if (text) return text;
+    }
+
+    if (candidate && typeof candidate === "object") {
+      if (typeof candidate.text === "string" && candidate.text.trim()) {
+        return candidate.text.trim();
+      }
+      if (typeof candidate.value === "string" && candidate.value.trim()) {
+        return candidate.value.trim();
+      }
+    }
+  }
+
+  return "";
+}
+
+/*
+ * Call OpenRouter for ONE design.
  */
-async function callOpenRouter(prompt) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+async function generateSingleDesign(
+  userPrompt,
+  style,
+  retry = false
+) {
+  const apiKey =
+    process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY is not configured.');
-  }
-
-  const response = await fetch(
-    'https://openrouter.ai/api/v1/chat/completions',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer':
-          process.env.NEXT_PUBLIC_SITE_URL ||
-          'https://agenticui-ten.vercel.app',
-        'X-Title': 'AgenticUI'
-      },
-      body: JSON.stringify({
-        model: 'openrouter/free',
-
-        messages: [
-          {
-            role: 'system',
-            content: SYSTEM_PROMPT
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-
-        temperature: 0.7,
-
-        max_tokens: 20000,
-
-        
-      })
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error('OpenRouter API Error:', data);
-
     throw new Error(
-      data?.error?.message ||
-      `OpenRouter request failed with status ${response.status}`
+      "OPENROUTER_API_KEY is not configured."
     );
   }
 
-  const content =
-    data?.choices?.[0]?.message?.content;
+  const retryInstruction = retry
+    ? `
+IMPORTANT RETRY:
 
-  if (!content) {
-    throw new Error('OpenRouter returned an empty response.');
-  }
+Your previous response was invalid.
 
-  return content;
-}
+Return ONLY valid JSON.
 
+Make the component shorter.
+Do not omit any required JSON fields.
+Do not include markdown or code fences.
+`
+    : "";
 
-/**
- * Clean AI response.
- */
-function cleanJson(text) {
-  return text
-    .replace(/```json/gi, '')
-    .replace(/```/g, '')
-    .trim();
-}
+  const prompt = `
+USER REQUEST:
 
+${userPrompt}
 
-/**
- * Parse AI JSON.
- */
-function parseJson(text) {
-  if (!text || typeof text !== 'string') {
-    throw new Error('AI returned an empty response.');
-  }
+DESIGN QUALITY REQUIREMENT:
 
-  let cleaned = text.trim();
+Treat this request as if you are designing a component
+for a premium production SaaS product.
 
-  // Remove markdown code fences
-  cleaned = cleaned
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim();
+Do not create a generic template.
 
-  // First attempt
-  try {
-    return JSON.parse(cleaned);
-  } catch (error) {
-    console.log('Direct JSON parse failed. Trying extraction...');
-  }
+Preserve every functional requirement from the user.
 
-  // Find the outer JSON object
-  const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
+Prioritize visual hierarchy, composition, spacing,
+typography and interaction quality.
 
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    const extracted = cleaned.slice(
-      firstBrace,
-      lastBrace + 1
-    );
+DESIGN STYLE:
 
+${style.key}
+
+DESIGN PERSONALITY:
+
+${style.personality}
+
+STYLE REQUIREMENTS:
+
+${style.instruction}
+
+Create ONE complete version of the requested component
+using this design style.
+
+The output must contain:
+
+1. title
+2. style
+3. html
+4. reactCode
+5. css
+6. js
+
+The HTML must be directly renderable inside a browser
+with Tailwind CDN.
+
+The React code must be valid JSX.
+
+CSS should contain only additional CSS that Tailwind
+cannot easily provide.
+
+JS should contain only small interaction logic if needed.
+
+If no JavaScript is required, return an empty string.
+
+${retryInstruction}
+`;
+
+  const lastModel = OPENROUTER_MODEL_CANDIDATES.at(-1);
+  let lastError = null;
+
+  for (const model of OPENROUTER_MODEL_CANDIDATES) {
     try {
-      return JSON.parse(extracted);
-    } catch (error) {
-      console.log(
-        'JSON extraction failed. Trying cleanup...'
+      const response = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          method: "POST",
+
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+
+            "HTTP-Referer":
+              process.env.NEXT_PUBLIC_SITE_URL ||
+              "https://agenticui-ten.vercel.app",
+
+            "X-Title":
+              "Brahmastra Design",
+          },
+
+          body: JSON.stringify({
+            model,
+
+            messages: [
+              {
+                role: "system",
+                content:
+                  BASE_SYSTEM_PROMPT,
+              },
+
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+
+            temperature: 0.75,
+
+            max_tokens: 6000,
+
+            response_format: {
+              type: "json_object",
+            },
+          }),
+        }
       );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        lastError = new Error(
+          "OpenRouter returned an unreadable response."
+        );
+        continue;
+      }
+
+      if (!response.ok) {
+        const message =
+          data?.error?.message ||
+          `OpenRouter request failed with status ${response.status}.`;
+
+        lastError = new Error(message);
+
+        if (
+          response.status === 400 ||
+          response.status === 404 ||
+          response.status === 422
+        ) {
+          console.warn(
+            `OpenRouter model ${model} rejected the request:`,
+            message
+          );
+          continue;
+        }
+
+        throw lastError;
+      }
+
+      if (data?.error) {
+        lastError = new Error(
+          data.error.message ||
+            "OpenRouter returned an API error."
+        );
+        continue;
+      }
+
+      const content = extractMessageContent(data);
+
+      if (!content) {
+        lastError = new Error(
+          "AI returned an empty response."
+        );
+        console.warn(
+          `OpenRouter model ${model} returned an empty response.`
+        );
+        continue;
+      }
+
+      return content;
+    } catch (error) {
+      lastError = error;
+
+      if (model !== lastModel) {
+        console.warn(
+          `Falling back from ${model} after error:`,
+          error.message
+        );
+        continue;
+      }
+
+      break;
     }
   }
 
-  // Try removing common model-added text
-  const jsonMatch = cleaned.match(
-    /\{[\s\S]*\}/
+  throw new Error(
+    lastError?.message ||
+      "AI returned an empty response."
   );
+}
 
-  if (jsonMatch) {
-    try {
-      return JSON.parse(jsonMatch[0]);
-    } catch (error) {
-      console.log(
-        'Final JSON parsing attempt failed.'
+
+/*
+ * Safely parse AI JSON.
+ *
+ * Handles:
+ * - normal JSON
+ * - accidental markdown fences
+ * - extra text before/after JSON
+ */
+function parseJSON(text) {
+  if (
+    !text ||
+    typeof text !== "string"
+  ) {
+    throw new Error(
+      "AI returned an empty response."
+    );
+  }
+
+  let cleaned =
+    text.trim();
+
+  /*
+   * Remove markdown fences if a model
+   * accidentally adds them.
+   */
+  cleaned =
+    cleaned
+      .replace(
+        /^```json\s*/i,
+        ""
+      )
+      .replace(
+        /^```\s*/i,
+        ""
+      )
+      .replace(
+        /\s*```$/i,
+        ""
+      )
+      .trim();
+
+  /*
+   * First attempt.
+   */
+  try {
+    return JSON.parse(
+      cleaned
+    );
+  } catch {
+    // Continue.
+  }
+
+  /*
+   * Attempt to find the outer JSON object.
+   */
+  const start =
+    cleaned.indexOf("{");
+
+  const end =
+    cleaned.lastIndexOf("}");
+
+  if (
+    start !== -1 &&
+    end !== -1 &&
+    end > start
+  ) {
+    const extracted =
+      cleaned.slice(
+        start,
+        end + 1
       );
+
+    try {
+      return JSON.parse(
+        extracted
+      );
+    } catch {
+      // Continue.
     }
   }
 
   console.error(
-    'RAW AI RESPONSE:',
+    "========== INVALID AI JSON =========="
+  );
+
+  console.error(
     cleaned
   );
 
+  console.error(
+    "======================================"
+  );
+
   throw new Error(
-    'AI returned invalid JSON.'
+    "AI returned invalid JSON."
   );
 }
 
 
-/**
- * Validate generated variations.
+/*
+ * Validate ONE generated design.
  */
-function validateVariations(data) {
+function validateDesign(
+  data,
+  style
+) {
   if (!data) {
-    return null;
+    throw new Error(
+      "AI returned no design."
+    );
   }
 
-  if (data.rejected === true) {
-    return data;
+  if (
+    typeof data.title !==
+    "string"
+  ) {
+    throw new Error(
+      "Generated design is missing a title."
+    );
   }
 
-  if (!Array.isArray(data.variations)) {
-    return null;
+  if (
+    typeof data.html !==
+    "string" ||
+    data.html.trim().length < 20
+  ) {
+    throw new Error(
+      "Generated design contains invalid HTML."
+    );
   }
 
-  const valid = data.variations.filter(
-    (variation) =>
-      variation &&
-      variation.title &&
-      variation.reactCode &&
-      variation.html
-  );
+  if (
+    typeof data.reactCode !==
+    "string" ||
+    data.reactCode.trim().length < 20
+  ) {
+    throw new Error(
+      "Generated design contains invalid React code."
+    );
+  }
 
-  if (valid.length !== 5) {
-    return null;
+  if (
+    typeof data.css !==
+    "string"
+  ) {
+    data.css = "";
+  }
+
+  if (
+    typeof data.js !==
+    "string"
+  ) {
+    data.js = "";
   }
 
   return {
-    rejected: false,
-    variations: valid.slice(0, 5)
+    id:
+      `var_${Date.now()}_${Math.random()
+        .toString(36)
+        .slice(2, 8)}`,
+
+    title:
+      data.title.trim(),
+
+    style:
+      style.key,
+
+    html:
+      data.html.trim(),
+
+    reactCode:
+      data.reactCode.trim(),
+
+    css:
+      data.css.trim(),
+
+    js:
+      data.js.trim(),
   };
 }
 
 
-/**
- * Generate UI designs.
+/*
+ * Generate ONE style with one retry.
  */
-async function generateDesigns(prompt) {
-  const responseText = await callOpenRouter(`
-USER REQUEST:
+async function generateWithRetry(
+  userPrompt,
+  style
+) {
+  let lastError =
+    null;
 
-${prompt}
+  for (
+    let attempt = 1;
+    attempt <= 2;
+    attempt++
+  ) {
+    try {
+      console.log(
+        `Generating ${style.key} - attempt ${attempt}/2`
+      );
 
-Generate exactly five UI design variations.
+      const raw =
+        await generateSingleDesign(
+          userPrompt,
+          style,
+          attempt === 2
+        );
 
-Remember:
-- Same requested component in all five variations.
-- Different visual design for each variation.
-- Use the five required design profiles.
-- Return ONLY JSON.
-`);
+      const parsed =
+        parseJSON(raw);
 
-  const data = parseJson(responseText);
+      return validateDesign(
+        parsed,
+        style
+      );
 
-  const validated = validateVariations(data);
+    } catch (error) {
+      lastError =
+        error;
 
-  if (!validated) {
-    throw new Error(
-      'AI did not return exactly 5 valid UI designs.'
-    );
+      console.error(
+        `${style.key} failed:`,
+        error.message
+      );
+
+      const message =
+        String(
+          error?.message || ""
+        ).toLowerCase();
+
+      /*
+       * Don't retry errors that won't
+       * be fixed by another generation.
+       */
+      const permanent =
+        message.includes(
+          "api key"
+        ) ||
+        message.includes(
+          "unauthorized"
+        ) ||
+        message.includes(
+          "authentication"
+        ) ||
+        message.includes(
+          "quota"
+        ) ||
+        message.includes(
+          "rate limit"
+        ) ||
+        message.includes(
+          "too many requests"
+        );
+
+      if (
+        permanent ||
+        attempt === 2
+      ) {
+        break;
+      }
+
+      /*
+       * Small delay before retry.
+       */
+      await new Promise(
+        (resolve) =>
+          setTimeout(
+            resolve,
+            800
+          )
+      );
+    }
   }
 
-  return validated;
+  throw (
+    lastError ||
+    new Error(
+      `Failed to generate ${style.key}.`
+    )
+  );
 }
 
 
-export async function POST(req) {
+/*
+ * Generate all five designs.
+ *
+ * We intentionally run them sequentially.
+ *
+ * Why?
+ *
+ * The OpenRouter free plan currently has request
+ * limits. Sending five requests simultaneously can
+ * make rate-limit problems more likely.
+ */
+async function generateAllDesigns(
+  userPrompt
+) {
+  const variations =
+    [];
+
+  for (
+    const style of DESIGN_STYLES
+  ) {
+    const design =
+      await generateWithRetry(
+        userPrompt,
+        style
+      );
+
+    variations.push(
+      design
+    );
+  }
+
+  return {
+    rejected: false,
+
+    variations,
+  };
+}
+
+
+/*
+ * POST /api/generate
+ */
+export async function POST(
+  req
+) {
   try {
-    const body = await req.json();
+    const body =
+      await req.json();
 
-    const prompt = body?.prompt;
+    const prompt =
+      body?.prompt;
 
+    /*
+     * Validate prompt.
+     */
     if (
-      !prompt ||
-      typeof prompt !== 'string' ||
+      typeof prompt !==
+        "string" ||
       !prompt.trim()
     ) {
       return NextResponse.json(
         {
           error:
-            'Please enter a valid UI design prompt.'
+            "Please enter a UI design request.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const cleanPrompt = prompt.trim();
+    const cleanPrompt =
+      prompt.trim();
 
+    /*
+     * Prevent extremely large prompts.
+     */
+    if (
+      cleanPrompt.length >
+      4000
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Please keep your UI request under 4000 characters.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /*
+     * Cache key.
+     */
     const cacheKey =
-      cleanPrompt.toLowerCase();
+      cleanPrompt
+        .toLowerCase()
+        .replace(
+          /\s+/g,
+          " "
+        )
+        .trim();
 
-    /**
+    /*
      * Return cached result.
      */
-    if (cache.has(cacheKey)) {
+    if (
+      cache.has(
+        cacheKey
+      )
+    ) {
       console.log(
-        'Serving cached design...'
+        "Returning cached designs."
       );
 
       return NextResponse.json(
-        cache.get(cacheKey)
+        cache.get(
+          cacheKey
+        )
       );
     }
 
-    /**
-     * Generate designs.
+    console.log(
+      "========================================"
+    );
+
+    console.log(
+      "BRAHMASTRA UI GENERATION"
+    );
+
+    console.log(
+      "Prompt:",
+      cleanPrompt
+    );
+
+    console.log(
+      "Generating 5 independent designs..."
+    );
+
+    console.log(
+      "========================================"
+    );
+
+    /*
+     * Generate the five designs.
      */
     const result =
-      await generateDesigns(cleanPrompt);
+      await generateAllDesigns(
+        cleanPrompt
+      );
 
-    /**
-     * Cache successful result.
+    /*
+     * Cache successful generation.
      */
     cache.set(
       cacheKey,
       result
     );
 
-    return NextResponse.json(result);
+    return NextResponse.json(
+      result
+    );
 
   } catch (error) {
     console.error(
-      'AgenticUI Generation Error:',
+      "========================================"
+    );
+
+    console.error(
+      "BRAHMASTRA GENERATION ERROR"
+    );
+
+    console.error(
       error
+    );
+
+    console.error(
+      "========================================"
     );
 
     const message =
       error?.message ||
-      'Unknown AI generation error.';
+      "Unknown error.";
+
+    const lower =
+      message.toLowerCase();
 
     let userMessage =
-      'AI generation failed. Please try again.';
+      "AI generation failed. Please try again.";
 
+    /*
+     * API key error.
+     */
     if (
-      message.includes(
-        'OPENROUTER_API_KEY'
-      )
-    ) {
-      userMessage =
-        'OpenRouter API key is missing. Please configure OPENROUTER_API_KEY.';
-    }
-
-    if (
-      message.includes(
-        'quota'
+      lower.includes(
+        "openrouter_api_key"
       ) ||
-      message.includes(
-        'rate'
+      lower.includes(
+        "api key"
       )
     ) {
       userMessage =
-        'The free AI model is temporarily rate-limited. Please try again shortly.';
+        "OpenRouter API key is missing or invalid.";
     }
 
-    if (
-      message.includes(
-        'invalid'
-      ) &&
-      message.includes(
-        'JSON'
+    /*
+     * Authentication.
+     */
+    else if (
+      lower.includes(
+        "unauthorized"
+      ) ||
+      lower.includes(
+        "authentication"
       )
     ) {
       userMessage =
-        'The AI returned an invalid design response. Please try again.';
+        "OpenRouter authentication failed. Check your API key.";
+    }
+
+    /*
+     * Rate limit.
+     */
+    else if (
+      lower.includes(
+        "rate limit"
+      ) ||
+      lower.includes(
+        "rate_limit"
+      ) ||
+      lower.includes(
+        "too many requests"
+      )
+    ) {
+      userMessage =
+        "The free AI service is temporarily rate-limited. Please try again later.";
+    }
+
+    /*
+     * Quota.
+     */
+    else if (
+      lower.includes(
+        "quota"
+      )
+    ) {
+      userMessage =
+        "The free AI usage limit has been reached.";
+    }
+
+    /*
+     * JSON problems.
+     */
+    else if (
+      lower.includes(
+        "invalid json"
+      ) ||
+      lower.includes(
+        "invalid response"
+      )
+    ) {
+      userMessage =
+        "One of the AI designs returned an invalid response. Please try again.";
+    }
+
+    /*
+     * Design generation failure.
+     */
+    else if (
+      lower.includes(
+        "generated design"
+      ) ||
+      lower.includes(
+        "failed to generate"
+      )
+    ) {
+      userMessage =
+        "One of the five design variations could not be generated. Please try again.";
     }
 
     return NextResponse.json(
       {
-        error: userMessage,
-        details: message
+        error:
+          userMessage,
+
+        /*
+         * Detailed error is available
+         * only during local development.
+         */
+        details:
+          process.env.NODE_ENV ===
+          "development"
+            ? message
+            : undefined,
       },
       {
-        status: 500
+        status: 500,
       }
     );
   }
